@@ -1,0 +1,28 @@
+{
+  "name": "agent-hub-channels",
+  "version": "0.1.0",
+  "description": "Clientes do daemon do Agent Hub que vivem em plataformas de mensagem",
+  "type": "module",
+  "bin": {
+    "agent-hub-telegram": "./dist/telegram/index.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "telegram": "node dist/telegram/index.js",
+    "dev:telegram": "tsx src/telegram/index.ts"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@agent-hub/core": "link:../core",
+    "ws": "^8.21.3"
+  },
+  "devDependencies": {
+    "@types/node": "^26.5.0",
+    "@types/ws": "^8.18.1",
+    "tsx": "^4.23.13",
+    "typescript": "^7.0.2"
+  }
+}
