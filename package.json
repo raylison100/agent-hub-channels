@@ -1,6 +1,6 @@
 {
   "name": "agent-hub-channels",
-  "version": "0.5.6",
+  "version": "0.6.0",
   "description": "Clientes do daemon do Agent Hub que vivem em plataformas de mensagem",
   "license": "PolyForm-Noncommercial-1.0.0",
   "author": "Raylison Nunes (https://github.com/raylison100)",
