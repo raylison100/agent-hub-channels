@@ -23,13 +23,14 @@ const env = process.env
 const botToken = required('TELEGRAM_BOT_TOKEN')
 const allowed = new Set((env.TELEGRAM_ALLOWED_IDS ?? '').split(',').map((s) => Number(s.trim())).filter((n) => Number.isFinite(n) && n > 0))
 if (allowed.size === 0) throw new Error('TELEGRAM_ALLOWED_IDS vazio; informe ao menos um id de usuario')
-const stateFile = env.AGENT_HUB_TELEGRAM_STATE ?? join(env.AGENT_HUB_HOME ?? join(homedir(), '.agent-hub'), 'telegram-state.json')
+const hubHome = env.AGENT_HUB_HOME ?? join(homedir(), '.agent-hub')
+const stateFile = env.AGENT_HUB_TELEGRAM_STATE ?? join(hubHome, 'telegram-state.json')
 const state: Record<string, ChatState> = existsSync(stateFile) ? (JSON.parse(readFileSync(stateFile, 'utf8')) as Record<string, ChatState>) : {}
 
 const api = new TelegramApi(botToken, log)
 const daemon = new NodeDaemonClient({
-  url: required('DAEMON_URL'),
-  token: required('DAEMON_TOKEN'),
+  url: env.DAEMON_URL ?? 'ws://127.0.0.1:47311/ws',
+  token: env.DAEMON_TOKEN ?? localToken(),
   accountToken: env.RELAY_ACCOUNT_TOKEN,
   deviceId: env.RELAY_DEVICE_ID,
   client: 'telegram',
@@ -189,7 +190,17 @@ function onFrame(f: ServerFrame): void {
   }
   if (f.type === 'automation.finished') {
     const chatId = [...allowed][0]!
-    void api.send(chatId, `Automacao ${f.kind} ${f.id} terminou com ${f.stop} (${f.cost_usd.toFixed(4)} USD). Sessao ${f.session_id.slice(0, 8)}.`)
+    const status = `Automacao ${f.kind} ${f.id} terminou com ${f.stop} (${f.cost_usd.toFixed(4)} USD). Sessao ${f.session_id.slice(0, 8)}.`
+    if (!f.notify?.includes('telegram') || !f.text) {
+      void api.send(chatId, status)
+      return
+    }
+    const st = state[String(chatId)] ?? {}
+    st.sessionId = f.session_id
+    if (f.workspace) st.workspace = f.workspace
+    save(chatId, st)
+    sessionChat.set(f.session_id, chatId)
+    void api.send(chatId, `${f.text}\n\n[${status} Responda aqui para continuar essa sessao; /nova volta ao normal.]`)
   }
 }
 
@@ -197,6 +208,13 @@ function save(chatId: number, st: ChatState): void {
   state[String(chatId)] = st
   mkdirSync(dirname(stateFile), { recursive: true })
   writeFileSync(stateFile, JSON.stringify(state, null, 2))
+}
+
+/** Token do daemon local gravado pelo agent-hub instalar, usado quando DAEMON_TOKEN nao vem no ambiente. */
+function localToken(): string {
+  const file = join(hubHome, 'token')
+  if (!existsSync(file)) throw new Error(`variavel DAEMON_TOKEN obrigatoria (nao achei ${file})`)
+  return readFileSync(file, 'utf8').trim()
 }
 
 function required(name: string): string {
